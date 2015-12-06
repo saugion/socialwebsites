@@ -1,0 +1,8 @@
+/* CSS declarations go here */
+.hidden_div{
+	display:none;
+}
+
+.login {
+	margin: 20px;
+}
