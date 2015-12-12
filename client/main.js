@@ -32,6 +32,13 @@ Router.route('/website/:_id', function () {
       		return Websites.findOne({_id:this.params._id});
     	}
   	});
+  	this.render('comments_list', {
+  		to:"comments"
+  	});
+});
+
+Accounts.ui.config({
+	passwordSignupFields: "USERNAME_AND_EMAIL"
 });
 
 /////
@@ -51,37 +58,72 @@ Template.website_list.helpers({
 	}
 });
 
+Template.comments_list.helpers({
+	comments: function() {
+		return Comment.find({}, {sort:{postedOn: -1}});
+	}
+});
+
+Template.single_comment.helpers({
+	formatDate: function(date) {
+		return moment(date).format("LLLL");
+	},
+
+	username: function() {
+		return Meteor.user().username;
+	}
+});
+
 
 /////
 // template events 
 /////
 
 Template.website_item.events({
-	"click .js-upvote":function(event){
-		// example of how you can access the id for the website in the database
-		// (this is the data context for the template)
-		Websites.update({"_id":this._id},
-			{$set: {rating:this.rating + 1}});
-   	
-		// put the code in here to add a vote to a website!
 
-		return false;// prevent the button from reloading the page
+	// upvote website
+	"click .js-upvote":function(event){
+		if (Meteor.user()) {
+			
+			// up vote
+			if (checkVote(Meteor.user()._id, this._id)) {
+				Websites.update({"_id":this._id}, {$set: {rating:this.rating + 1}});
+			}
+			else {
+				console.log("already voted");
+			}
+			
+	   	
+			// put the code in here to add a vote to a website!
+
+			return false;// prevent the button from reloading the page
+		}
 	}, 
+
+	// downvot website
 	"click .js-downvote":function(event){
 
-		// example of how you can access the id for the website in the database
-		// (this is the data context for the template)
-		Websites.update({"_id":this._id},
-			{$set: {rating:this.rating - 1}});
+		if (Meteor.user()) {
 
-		// put the code in here to remove a vote from a website!
+			// down vote 
+			if (checkVote(Meteor.user()._id, this._id)) {
+				Websites.update({"_id":this._id}, {$set: {rating:this.rating - 1}});
+			}
+			else {
+				console.log("already voted");
+			}
 
-		return false;// prevent the button from reloading the page
+			return false;// prevent the button from reloading the page
+		}
 	},
-	"click .js-remove":function(event){
-		Websites.remove({"_id":this._id});
 
-		return false;
+	// remove website
+	"click .js-remove":function(event){
+		if (Meteor.user()) {
+			Websites.remove({"_id":this._id});
+
+			return false;
+		}
 	}
 });
 
@@ -100,12 +142,12 @@ Template.website_form.events({
 		
 		//  put your website saving code in here!
   		Websites.insert({
-        title:title, 
-        url:url, 
-        description: description,
-        createdOn:new Date(),
-        rating:0,
-        addedBy:Meteor.user()._id,
+	        title:title, 
+	        url:url, 
+	        description: description,
+	        createdOn:new Date(),
+	        rating:0,
+	        addedBy:Meteor.user()._id,
   		});
 
     	$("#website_form").toggle('slow');
@@ -114,3 +156,37 @@ Template.website_form.events({
 
 	}
 });
+
+Template.comments_list.events({
+	"click .js-add-comment":function(event) {
+
+		if (Meteor.user()) {
+			var text = $('#comment').val();
+			
+			Comment.insert({
+				text:text,
+				postedBy:Meteor.user().username,
+				postedOn:new Date()
+			});
+
+			$('#comment').val("");
+		}
+
+		return false;
+	}
+});
+
+
+/***** helper methods ******/
+
+function checkVote(userId, websiteId) {
+	var vote = Vote.findOne({userId:userId, websiteId:websiteId});
+	if (!vote) {
+		var votes = Vote.insert({userId:userId, websiteId:websiteId});
+		Websites.update({"_id":websiteId}, {$set: {vote:vote}});
+		return true;
+	}
+	else {
+		return false;
+	}
+}
